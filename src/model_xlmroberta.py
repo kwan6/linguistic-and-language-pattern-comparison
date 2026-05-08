@@ -1,7 +1,7 @@
 """
-model_indobert.py
-Fine-tuning IndoBERT for clickbait classification.
-Model: indobenchmark/indobert-base-p1
+model_xlmroberta.py
+Fine-tuning XLM-RoBERTa for clickbait classification.
+Model: xlm-roberta-base
 """
 
 import os
@@ -19,8 +19,8 @@ from sklearn.metrics import classification_report, f1_score
 from tqdm import tqdm
 
 # ─── Config ───────────────────────────────────────────────────────────────────
-MODEL_NAME = "indobenchmark/indobert-base-p1"
-SAVE_DIR   = "results"
+MODEL_NAME = "xlm-roberta-base"
+SAVE_DIR   = "models/xlmroberta"
 MAX_LEN    = 128
 BATCH_SIZE = 16
 EPOCHS     = 5
@@ -32,6 +32,7 @@ DEVICE     = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class FocalLoss(torch.nn.Module):
     """
     Focal Loss untuk mengatasi class imbalance.
+    Memberi bobot lebih besar ke sampel yang sulit diprediksi (clickbait).
     FL(p) = -alpha * (1 - p)^gamma * log(p)
     """
     def __init__(self, alpha=0.25, gamma=2.0, reduction="mean"):
@@ -73,10 +74,10 @@ class ClickbaitDataset(Dataset):
 
 
 # ─── Trainer ──────────────────────────────────────────────────────────────────
-class IndoBERTTrainer:
+class XLMRobertaTrainer:
     def __init__(self, use_focal_loss: bool = True):
-        print(f"[IndoBERT] Device: {DEVICE}")
-        print(f"[IndoBERT] Focal Loss: {use_focal_loss}")
+        print(f"[XLM-RoBERTa] Device: {DEVICE}")
+        print(f"[XLM-RoBERTa] Focal Loss: {use_focal_loss}")
         self.use_focal_loss = use_focal_loss
         self.tokenizer      = AutoTokenizer.from_pretrained(MODEL_NAME)
         self.model          = AutoModelForSequenceClassification.from_pretrained(
@@ -106,7 +107,7 @@ class IndoBERTTrainer:
         os.makedirs(SAVE_DIR, exist_ok=True)
         self.model.save_pretrained(SAVE_DIR)
         self.tokenizer.save_pretrained(SAVE_DIR)
-        print(f"[IndoBERT] Model saved -> {SAVE_DIR}")
+        print(f"[XLM-RoBERTa] Model saved -> {SAVE_DIR}")
 
     def _load(self):
         self.model     = AutoModelForSequenceClassification.from_pretrained(SAVE_DIR).to(DEVICE)
@@ -131,7 +132,7 @@ class IndoBERTTrainer:
             self.model.train()
             total_loss = 0
 
-            for batch in tqdm(train_loader, desc=f"[IndoBERT] Epoch {epoch}/{EPOCHS}"):
+            for batch in tqdm(train_loader, desc=f"[XLM-RoBERTa] Epoch {epoch}/{EPOCHS}"):
                 optimizer.zero_grad()
                 logits = self.model(
                     input_ids=batch["input_ids"].to(DEVICE),
@@ -154,7 +155,7 @@ class IndoBERTTrainer:
                 best_f1 = val_f1
                 self._save()
 
-        print(f"[IndoBERT] Best Val F1: {best_f1:.4f}")
+        print(f"[XLM-RoBERTa] Best Val F1: {best_f1:.4f}")
         return history
 
     def evaluate(self, test_df: pd.DataFrame) -> dict:
@@ -176,9 +177,9 @@ class IndoBERTTrainer:
             target_names=["non-clickbait", "clickbait"],
             output_dict=True,
         )
-        print("\n[IndoBERT] Test Results:")
+        print("\n[XLM-RoBERTa] Test Results:")
         print(classification_report(labels, preds, target_names=["non-clickbait", "clickbait"]))
-        return {"model": "IndoBERT", "report": report, "preds": preds, "labels": labels}
+        return {"model": "XLM-RoBERTa", "report": report, "preds": preds, "labels": labels}
 
     def predict_proba(self, texts: list) -> np.ndarray:
         self._load()
